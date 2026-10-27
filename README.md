@@ -132,7 +132,7 @@ python alicewakeword.py activate --host HOST
 ```text
 Quasar snd_pcm_readi → неблокирующий ARM32 ALSA-отвод → Unix socket
   → mic0, фильтр 48→16 кГц → openWakeWord mel → embedding → выбранный classifier
-  → порог + подавление повторов → IDLE/mute guard → штатный maind --cli
+  → порог + подавление повторов → аппаратный mute guard → штатный maind --cli
 ```
 
 NEON, три вычислительных потока и точный кэш перекрывающихся окон сокращают нагрузку.
