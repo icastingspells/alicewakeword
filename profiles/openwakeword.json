@@ -1,0 +1,14 @@
+{
+  "LICENSE": {
+    "url": "https://raw.githubusercontent.com/dscripka/openWakeWord/368c03716d1e92591906a84949bc477f3a834455/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "melspectrogram.tflite": {
+    "url": "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/melspectrogram.tflite",
+    "sha256": "96fa0adccb6e8cf95cb14465409a1a2898ee4a96a85bb9ed3c7eb0e68bf163e8"
+  },
+  "embedding_model.tflite": {
+    "url": "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/embedding_model.tflite",
+    "sha256": "c0aea21eb84a4ce90a08c870da41b7a7173b45269e6a3207c71d67c40f3a59d8"
+  }
+}

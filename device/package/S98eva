@@ -1,0 +1,7 @@
+#!/bin/sh
+# EVA_MANAGED_INIT_V1
+case "${1:-start}" in
+start) [ ! -e /data/eva/disabled ] && [ -x /data/eva/current/evactl ] && /data/eva/current/evactl boot || true ;;
+stop) [ ! -x /data/eva/current/evactl ] || /data/eva/current/evactl stop ;;
+*) exit 1 ;;
+esac

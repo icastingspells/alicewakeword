@@ -1,0 +1,5 @@
+{
+  "repository": "icastingspells/alicewakeword",
+  "default_profile": "plum",
+  "zig_version": "0.15.2"
+}

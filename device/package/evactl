@@ -1,0 +1,123 @@
+#!/bin/sh
+set -eu
+BASE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+ROOT=/data/eva
+RUN=/tmp/eva
+LAUNCH=/system/vendor/quasar/launch.json
+. "$BASE/profile.env"
+owned_engine() {
+    case "${1:-}" in ''|*[!0-9]*) return 1;;esac
+    [ "$(readlink /proc/$1/exe 2>/dev/null || true)" = "$BASE/eva-native" ]
+}
+stop_engine() {
+    touch "$RUN/stopping"
+    if [ -f "$RUN/engine.pid" ];then
+        pid=$(cat "$RUN/engine.pid");if owned_engine "$pid";then kill "$pid";fi
+    fi
+    i=0
+    while [ -f "$RUN/supervisor.pid" ] && [ "$i" -lt 5 ];do sleep 1;i=$((i+1));done
+}
+case "${1:-status}" in
+preflight) exec "$BASE/preflight.sh" ;;
+status)
+    [ ! -e "$ROOT/disabled" ] && echo ENABLED=1 || echo ENABLED=0
+    if [ -f "$RUN/engine.pid" ] && owned_engine "$(cat "$RUN/engine.pid")";then
+        echo RUNNING=1;awk '/VmRSS:|VmHWM:|VmSize:/ {print}' /proc/"$(cat "$RUN/engine.pid")"/status
+    else echo RUNNING=0;fi
+    if [ -f "$ROOT/config.env" ];then grep '^MODE=' "$ROOT/config.env";fi
+    if [ -f "$RUN/engine.log" ];then tail -n 8 "$RUN/engine.log";fi ;;
+start)
+    [ ! -e "$ROOT/disabled" ] || { echo 'EVA disabled';exit 1; }
+    [ ! -L "$RUN" ] || exit 1
+    mkdir -p "$RUN";chmod 700 "$RUN"
+    if [ -f "$RUN/engine.pid" ] && owned_engine "$(cat "$RUN/engine.pid")";then exit 0;fi
+    if ! mkdir "$RUN/lock" 2>/dev/null;then echo 'EVA supervisor lock exists';exit 1;fi
+    rm -f "$RUN/stopping"
+    if [ -S "$RUN/pcm.sock" ];then rm -f "$RUN/pcm.sock";fi
+    [ ! -e "$RUN/pcm.sock" ] || exit 1
+    /bin/sh "$BASE/evactl" supervise >"$RUN/supervisor.log" 2>&1 &
+    echo $! >"$RUN/supervisor.pid"
+    i=0
+    while [ "$i" -lt 15 ];do
+        if [ -S "$RUN/pcm.sock" ] && [ -f "$RUN/engine.pid" ] && owned_engine "$(cat "$RUN/engine.pid")";then exit 0;fi
+        sleep 1;i=$((i+1))
+    done
+    echo 'EVA start timed out';exit 1 ;;
+supervise)
+    umask 077
+    . "$ROOT/config.env"
+    case "$MODE" in observe|active) ;;*) exit 2;;esac
+    trap 'if [ -f "$RUN/engine.pid" ];then p=$(cat "$RUN/engine.pid");if owned_engine "$p";then kill "$p" 2>/dev/null || true;fi;fi;rm -f "$RUN/engine.pid" "$RUN/supervisor.pid";rmdir "$RUN/lock" 2>/dev/null || true' EXIT
+    trap 'exit 0' TERM INT
+    for attempt in 1 2 3;do
+        [ ! -f "$RUN/stopping" ] || exit 0
+        if [ -S "$RUN/pcm.sock" ];then rm -f "$RUN/pcm.sock";fi
+        set -- --listen "$RUN/pcm.sock"
+        if [ "$MODE" = active ];then set -- "$@" --activate "$BASE/activate.sh";fi
+        (ulimit -S -v 32768;exec /bin/busybox nice -n 10 "$BASE/eva-native" "$@") >"$RUN/engine.log" 2>&1 &
+        child=$!;echo "$child" >"$RUN/engine.pid"
+        code=0;wait "$child" || code=$?
+        [ "$code" -ne 0 ] && [ ! -f "$RUN/stopping" ] || exit 0
+        sleep 3
+    done
+    touch "$ROOT/disabled";echo 'EVA disabled after three failures';exit 1 ;;
+stop) [ ! -d "$RUN" ] || stop_engine ;;
+boot)
+    [ ! -e "$ROOT/disabled" ] || exit 0
+    if [ -e "$ROOT/boot-pending" ];then touch "$ROOT/disabled";echo 'EVA disabled: previous boot incomplete';exit 1;fi
+    touch "$ROOT/boot-pending"
+    if ! "$BASE/preflight.sh" || ! "$BASE/eva-native" --self-test;then
+        touch "$ROOT/disabled";rm -f "$ROOT/boot-pending";exit 1
+    fi
+    current=$(sha256sum "$LAUNCH" | awk '{print $1}')
+    if [ "$current" = "$BASE_LAUNCH_SHA256" ];then mount --bind "$BASE/launch.json" "$LAUNCH";fi
+    if ! "$BASE/evactl" start;then touch "$ROOT/disabled";rm -f "$ROOT/boot-pending";exit 1;fi
+    # S99quasar must be allowed to start before checking the real capture path.
+    (
+        sleep 45
+        if [ -f "$RUN/engine.pid" ] && owned_engine "$(cat "$RUN/engine.pid")" && grep -q '^EVA_PCM_STARTED ' "$RUN/engine.log";then
+            rm -f "$ROOT/boot-pending"
+        else
+            "$BASE/evactl" disable
+            echo 'EVA disabled: no verified PCM after boot' >>"$RUN/supervisor.log"
+        fi
+    ) </dev/null >/dev/null 2>&1 & ;;
+disable)
+    touch "$ROOT/disabled";[ ! -d "$RUN" ] || stop_engine
+    if [ "$(sha256sum "$LAUNCH" | awk '{print $1}')" = "$PATCHED_LAUNCH_SHA256" ];then umount -l "$LAUNCH";fi
+    echo 'Disabled; loaded tap becomes inactive when socket is absent; restart Quasar to unload it.' ;;
+enable)
+    "$BASE/preflight.sh"
+    rm -f "$ROOT/disabled" "$ROOT/boot-pending"
+    exec "$BASE/evactl" boot ;;
+mode)
+    case "${2:-}" in observe|active) ;;*) echo 'Usage: evactl mode observe|active';exit 2;;esac
+    if [ "$2" = active ];then
+        [ -f "$ROOT/measurement.env" ] || { echo 'Run evactl measure on the physical device first';exit 1; }
+        . "$ROOT/measurement.env"
+        [ "$REALTIME_READY" = 1 ] && [ "$MEASURED_BINARY" = "$(sha256sum "$BASE/eva-native" | awk '{print $1}')" ] && [ "$MEASURED_FIRMWARE" = "$FIRMWARE_SHA256" ] || { echo 'Real-time/PCM measurement did not pass for this build';exit 1; }
+    fi
+    printf 'MODE=%s\n' "$2" >"$ROOT/config.env.new";chmod 600 "$ROOT/config.env.new";mv -f "$ROOT/config.env.new" "$ROOT/config.env"
+    "$BASE/evactl" stop;exec "$BASE/evactl" start ;;
+measure)
+    . "$ROOT/config.env"
+    [ "$MODE" = observe ] || { echo 'Switch to observe mode before measurement';exit 1; }
+    "$BASE/evactl" stop
+    "$BASE/evactl" start
+    sleep 30
+    "$BASE/evactl" stop
+    cp "$RUN/engine.log" "$RUN/measurement.log"
+    ready=0
+    if awk '/^EVA_TRANSPORT / {for(i=1;i<=NF;i++){split($i,a,"=");v[a[1]]=a[2]} if(v["packets"]>0 && v["gaps"]==0 && v["max_frame_ms"]>0 && v["max_frame_ms"]<80) ok=1} /^EVA_RESULT / {for(i=1;i<=NF;i++){split($i,a,"=");if(a[1]=="frames")frames=a[2]}} END{exit !(ok && frames>=300)}' "$RUN/measurement.log";then ready=1;fi
+    {
+        echo "REALTIME_READY=$ready"
+        echo "MEASURED_BINARY=$(sha256sum "$BASE/eva-native" | awk '{print $1}')"
+        echo "MEASURED_FIRMWARE=$FIRMWARE_SHA256"
+    } >"$ROOT/measurement.env"
+    chmod 600 "$ROOT/measurement.env"
+    grep -E '^EVA_TRANSPORT |^EVA_MEMORY ' "$RUN/measurement.log" || true
+    echo REALTIME_READY=$ready
+    "$BASE/evactl" start
+    [ "$ready" = 1 ] ;;
+*) echo 'Usage: evactl preflight|status|start|stop|boot|disable|enable|measure|mode observe|active';exit 2 ;;
+esac

@@ -1,0 +1,7 @@
+{
+  "device": "Yandex Station Lite 2 / Plum",
+  "firmware_version": "0.369.1.46.4778258659.20261013.133",
+  "firmware_sha256": "baf7326c1fa4ff082a559216cba2ba6a72adcf3a29797d9d444a62ca6129890d",
+  "base_launch_sha256": "5e31edf20f93adce7d48757168a8ebde9ae3bd86f3d56d9c516291076becf624",
+  "launch": "launch.json"
+}

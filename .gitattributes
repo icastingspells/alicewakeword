@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Preserve exact profile bytes: hash must match the firmware's launcher.
+profiles/plum/launch.json -text

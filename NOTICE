@@ -1,0 +1,14 @@
+Original AliceWakeWord source code: MIT; see LICENSE.
+
+OpenWakeWord frontend assets are downloaded separately from dscripka/openWakeWord
+release v0.5.1 and checked against pinned SHA-256 digests. They are distributed
+under Apache-2.0; each device package includes LICENSE.openwakeword and NOTICE.
+Reference implementation commit: 368c03716d1e92591906a84949bc477f3a834455.
+
+User-selected classifier models retain their own licensing terms. The example
+EVA classifier was supplied by this project's owner. The source-code MIT license
+does not replace third-party model licenses.
+
+The Plum profile describes configuration observed in Yandex Station firmware.
+No firmware executables, firmware dump, credentials or device recordings are
+distributed in this source repository. This project is not affiliated with Yandex.
