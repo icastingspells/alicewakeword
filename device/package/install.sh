@@ -5,7 +5,7 @@ SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 cd "$SOURCE"
 sha256sum -c SHA256SUMS
 . ./profile.env
-./preflight.sh
+./preflight.sh --install
 ./eva-native --self-test
 ROOT=/data/eva
 [ ! -L "$ROOT" ] || exit 1

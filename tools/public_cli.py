@@ -208,7 +208,7 @@ def install(args):
     with tempfile.TemporaryDirectory() as temp:
         for name in ['preflight.sh', 'profile.env']:
             local = Path(temp) / name; local.write_bytes(files[name]); remote.push(local, stage + '/' + name)
-    remote.shell(f"sh '{stage}/preflight.sh'")
+    remote.shell(f"sh '{stage}/preflight.sh' --install")
     if args.check:
         remote.shell(f"rm -f '{stage}/preflight.sh' '{stage}/profile.env'; rmdir '{stage}'")
         return

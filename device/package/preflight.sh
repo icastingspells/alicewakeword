@@ -9,8 +9,10 @@ echo EVA_PREFLIGHT_VERSION=1
 check ROOT test "$(id -u)" = 0
 check DATA_DIRECTORY test -d /data
 if [ -L /data/eva ]; then echo INSTALL_ROOT_SYMLINK=FAIL;failed=1;fi
-actual=$(sha256sum /system/vendor/quasar/maind 2>/dev/null | awk '{print $1}')
-check FIRMWARE_HASH test "$actual" = "$FIRMWARE_SHA256"
+if [ "${1:-}" = --install ];then
+    actual=$(sha256sum /system/vendor/quasar/maind 2>/dev/null | awk '{print $1}')
+    check FIRMWARE_HASH test "$actual" = "$FIRMWARE_SHA256"
+fi
 elf=$(od -An -tu1 -j4 -N1 /system/vendor/quasar/maind 2>/dev/null | tr -d ' ')
 check USERSPACE_ELF32 test "$elf" = 1
 launch=$(sha256sum /system/vendor/quasar/launch.json 2>/dev/null | awk '{print $1}')

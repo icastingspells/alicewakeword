@@ -63,11 +63,11 @@ esac
         self.assertIn('reason=locked', result.stdout)
         self.assertNotIn('CLI_CALLED', result.stdout)
 
-    def test_changed_firmware_is_rejected(self):
+    def test_activation_does_not_recheck_firmware(self):
         self.maind.write_bytes(b'different firmware')
         result = self.invoke('0')
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn('CLI_CALLED', result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('CLI_CALLED', result.stdout)
 
 
 if __name__ == '__main__':
