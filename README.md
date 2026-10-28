@@ -44,7 +44,7 @@ python alicewakeword.py install --host 192.168.1.50 --reboot
 Скрипт использует передачу через stdin SSH: **SCP и SFTP на колонке не нужны**.
 Архив и его SHA-256 скачиваются из [Releases](https://github.com/icastingspells/alicewakeword/releases).
 Можно передать локальный пакет: `install --host HOST --package path/to/package.tar.gz`.
-Классификатор `eva.tflite` для воспроизведения стандартной сборки также приложен к релизу.
+Классификатор [`eva.tflite`](eva.tflite) для воспроизведения стандартной сборки включён в репозиторий и также приложен к релизу.
 
 После восстановления связи:
 
